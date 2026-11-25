@@ -47,7 +47,7 @@ jobs:
       - name: Install Android SDK packages
         run: |
           "$SDKMANAGER" --install "platform-tools"
-          "$SDKMANAGER" --install "platforms;android-37"
+          "$SDKMANAGER" --channel=3 --install "platforms;android-37"
           "$SDKMANAGER" --install "ndk;27.3.13750724"
 
       - name: Configure direct Android Gradle Plugin resolution
