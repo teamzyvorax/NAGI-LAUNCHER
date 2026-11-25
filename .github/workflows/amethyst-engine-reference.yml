@@ -48,7 +48,7 @@ jobs:
         run: |
           "$SDKMANAGER" --install "platform-tools"
           "$SDKMANAGER" --install "platforms;android-36"
-          "$SDKMANAGER" --install "platforms;android-36-ext1"
+          "$SDKMANAGER" --install "platforms;android-36.1"
           "$SDKMANAGER" --install "ndk;27.3.13750724"
 
       - name: Use available stable Android compile SDK
