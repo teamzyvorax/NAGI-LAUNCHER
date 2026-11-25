@@ -47,8 +47,20 @@ jobs:
       - name: Install Android SDK packages
         run: |
           "$SDKMANAGER" --install "platform-tools"
-          "$SDKMANAGER" --channel=3 --install "platforms;android-37"
+          "$SDKMANAGER" --install "platforms;android-36"
           "$SDKMANAGER" --install "ndk;27.3.13750724"
+
+      - name: Use available stable Android compile SDK
+        working-directory: amethyst
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("app_pojavlauncher/build.gradle")
+          source = path.read_text()
+          if "compileSdk = 37" not in source:
+              raise SystemExit("Expected Amethyst compileSdk 37 declaration was not found")
+          path.write_text(source.replace("compileSdk = 37", "compileSdk = 36", 1))
+          PY
 
       - name: Configure direct Android Gradle Plugin resolution
         working-directory: amethyst
