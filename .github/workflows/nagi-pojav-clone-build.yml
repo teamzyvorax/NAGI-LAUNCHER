@@ -1,0 +1,111 @@
+name: NAGI Pojav Clone Build
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/nagi-pojav-clone-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build NAGI Launcher from Pojav source
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PojavLauncher source
+        uses: actions/checkout@v4
+        with:
+          repository: PojavLauncherTeam/PojavLauncher
+          ref: b12ad048157b3aa255d078c235dd4571e1900309
+          submodules: recursive
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install required Android SDK and NDK
+        run: |
+          sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;25.2.9519653"
+
+      - name: Apply NAGI identity and visual branding
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("app_pojavlauncher/src/main")
+          strings = root / "res/values/strings.xml"
+          data = strings.read_text()
+          data = data.replace(
+              '<string name="app_name">PojavLauncher (Minecraft: Java Edition for Android)</string>',
+              '<string name="app_name">NAGI Launcher</string>'
+          ).replace(
+              '<string name="app_short_name">PojavLauncher</string>',
+              '<string name="app_short_name">NAGI</string>'
+          )
+          strings.write_text(data)
+
+          colors = root / "res/values/colors.xml"
+          data = colors.read_text()
+          data = data.replace("#181818", "#09090D")
+          data = data.replace("#464646", "#351018")
+          data = data.replace("#242424", "#0D0D12")
+          data = data.replace("#232323", "#111116")
+          data = data.replace("#57CC33", "#FF2638")
+          colors.write_text(data)
+
+          (root / "res/drawable/nagi_launcher_foreground.xml").write_text("""<?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp" android:height="108dp"
+              android:viewportWidth="108" android:viewportHeight="108">
+              <path android:fillColor="#FF2638" android:pathData="M25,78 L25,30 L38,30 L70,62 L70,30 L84,30 L84,78 L71,78 L39,46 L39,78 Z"/>
+              <path android:fillColor="#FFFFFFFF" android:pathData="M18,86 L90,86 L90,91 L18,91 Z"/>
+          </vector>
+          """)
+          adaptive = """<?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/nagi_icon_background"/>
+              <foreground android:drawable="@drawable/nagi_launcher_foreground"/>
+          </adaptive-icon>
+          """
+          (root / "res/values/nagi_brand.xml").write_text(
+              '<?xml version="1.0" encoding="utf-8"?><resources><color name="nagi_icon_background">#09090D</color></resources>'
+          )
+          for name in ("ic_launcher.xml", "ic_launcher_round.xml"):
+              (root / "res/mipmap-anydpi-v26" / name).write_text(adaptive)
+
+          gradle = Path("app_pojavlauncher/build.gradle")
+          data = gradle.read_text()
+          data = data.replace('applicationId "net.kdt.pojavlaunch"', 'applicationId "com.nagi.launcher"')
+          data = data.replace("'net.kdt.pojavlaunch.debug'", "'com.nagi.launcher.debug'")
+          data = data.replace("'net.kdt.pojavlaunch.scoped.gamefolder.debug'", "'com.nagi.launcher.scoped.gamefolder.debug'")
+          data = data.replace("'net.kdt.pojavlaunch.scoped.controlfolder.debug'", "'com.nagi.launcher.scoped.controlfolder.debug'")
+          data = data.replace("'net.kdt.pojavlaunch.scoped.gamefolder'", "'com.nagi.launcher.scoped.gamefolder'")
+          data = data.replace("'net.kdt.pojavlaunch'", "'com.nagi.launcher'")
+          gradle.write_text(data)
+
+          settings = Path("settings.gradle")
+          data = settings.read_text().replace("rootProject.name='PojavLauncher'", "rootProject.name='NAGI Launcher'")
+          settings.write_text(data)
+          PY
+
+      - name: Build NAGI debug APK
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon :app_pojavlauncher:assembleDebug
+
+      - name: Upload NAGI APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NAGI-POJAV-CLONE-debug-apk
+          path: app_pojavlauncher/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
