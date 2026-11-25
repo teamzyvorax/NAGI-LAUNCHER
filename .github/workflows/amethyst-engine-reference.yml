@@ -1,8 +1,8 @@
-name: Amethyst Engine Reference Build
+name: NAGI Amethyst Engine Build
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
     paths:
       - ".github/workflows/amethyst-engine-reference.yml"
       - "ENGINE_INTEGRATION.md"
@@ -12,15 +12,15 @@ permissions:
   contents: read
 
 jobs:
-  build-amethyst-reference:
-    name: Build Amethyst Android reference APK
+  build-nagi-engine:
+    name: Build NAGI Android engine APK
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Amethyst source with submodules
+      - name: Checkout Amethyst engine source
         uses: actions/checkout@v4
         with:
           repository: AngelAuraMC/Amethyst-Android
-          ref: v3_openjdk
+          ref: 9423d6054115767b56de7ed0b83ed18fc1eba3c2
           submodules: recursive
           path: amethyst
 
@@ -36,46 +36,40 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Verify preinstalled Android SDK tools
-        run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" || find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f
-          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | sort | tail -n 1)"
-          echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
-          "$SDKMANAGER" --version
-
       - name: Install Android SDK packages
         run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | sort | tail -n 1)"
           "$SDKMANAGER" --install "platform-tools"
           "$SDKMANAGER" --install "platforms;android-36"
           "$SDKMANAGER" --install "platforms;android-36.1"
           "$SDKMANAGER" --install "ndk;27.3.13750724"
 
-      - name: Use available stable Android compile SDK
+      - name: Apply NAGI branding and CI SDK compatibility
         working-directory: amethyst
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          path = Path("app_pojavlauncher/build.gradle")
-          source = path.read_text()
+          gradle = Path("app_pojavlauncher/build.gradle")
+          source = gradle.read_text()
           if "compileSdk = 37" not in source:
-              raise SystemExit("Expected Amethyst compileSdk 37 declaration was not found")
-          replacement = """compileSdk {
+              raise SystemExit("Expected upstream compileSdk 37 declaration was not found")
+          source = source.replace(
+              "compileSdk = 37",
+              """compileSdk {
                   version = release(36) {
                       minorApiLevel = 1
                   }
-              }"""
-          path.write_text(source.replace("compileSdk = 37", replacement, 1))
-          PY
-
-      - name: Configure direct Android Gradle Plugin resolution
-        working-directory: amethyst
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path("settings.gradle")
-          source = path.read_text()
-          source = source.replace(
+              }""",
+              1
+          )
+          source = source.replace('resValue "string", "app_name", "Amethyst (Debug)"',
+                                  'resValue "string", "app_name", "NAGI Launcher"')
+          source = source.replace('resValue "string", "app_short_name", "Amethyst (Debug)"',
+                                  'resValue "string", "app_short_name", "NAGI"')
+          gradle.write_text(source)
+          settings = Path("settings.gradle")
+          settings_source = settings.read_text()
+          settings_source = settings_source.replace(
               "pluginManagement {",
               """pluginManagement {
               resolutionStrategy {
@@ -86,25 +80,19 @@ jobs:
                   }
               }"""
           )
-          path.write_text(source)
+          settings.write_text(settings_source)
           PY
 
-      - name: Verify Java installations
-        run: |
-          java -version
-          "${JAVA_HOME_8_X64}/bin/java" -version
-          test -x "${JAVA_HOME_8_X64}/bin/java"
-
-      - name: Build Amethyst reference APK
+      - name: Build NAGI engine APK
         working-directory: amethyst
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon --stacktrace :app_pojavlauncher:assembleDebug
 
-      - name: Upload Amethyst reference APK
+      - name: Upload NAGI engine APK
         uses: actions/upload-artifact@v4
         with:
-          name: AMETHYST-ENGINE-REFERENCE-APK-not-integrated-into-NAGI
+          name: NAGI-AMETHYST-ENGINE-APK
           path: amethyst/app_pojavlauncher/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
