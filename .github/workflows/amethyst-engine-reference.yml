@@ -1,0 +1,50 @@
+name: Amethyst Engine Reference Build
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - ".github/workflows/amethyst-engine-reference.yml"
+      - "ENGINE_INTEGRATION.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-amethyst-reference:
+    name: Build Amethyst Android reference APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Amethyst source with submodules
+        uses: actions/checkout@v4
+        with:
+          repository: AngelAuraMC/Amethyst-Android
+          ref: v3_openjdk
+          submodules: recursive
+          path: amethyst
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Build Amethyst reference APK
+        working-directory: amethyst
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon :app_pojavlauncher:assembleDebug
+
+      - name: Upload Amethyst reference APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AMETHYST-ENGINE-REFERENCE-APK-not-integrated-into-NAGI
+          path: amethyst/app_pojavlauncher/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
